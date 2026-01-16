@@ -26,7 +26,14 @@ yarn-debug.log*
 yarn-error.log*
 
 # local env files
+.env
 .env*.local
+
+# tool configs
+.claude/
+.opencode/
+.serena/
+_bmad/
 
 # vercel
 .vercel
