@@ -1,5 +1,135 @@
 import { z } from 'zod'
 
+// ============================================
+// Wireframe Workflow Schema (Excalidraw)
+// ============================================
+
+export const wireframeStepSchema = z.enum([
+  'contextual_analysis',      // Step 0
+  'wireframe_type_selection', // Step 1
+  'requirements_gathering',   // Step 2
+  'theme_detection',          // Step 3
+  'theme_selection',          // Step 4
+  'structure_planning',       // Step 5
+  'resource_loading',         // Step 6
+  'element_building',         // Step 7
+  'optimization',             // Step 8
+  'json_validation',          // Step 9
+  'content_validation',       // Step 10
+  'complete'
+])
+
+export const wireframeTypeSchema = z.enum([
+  'website_desktop',
+  'mobile_app',
+  'web_app_responsive',
+  'tablet_app',
+  'multi_platform'
+])
+
+export const fidelityLevelSchema = z.enum(['low', 'medium', 'high'])
+
+export const themeStyleSchema = z.enum([
+  'classic_wireframe',
+  'high_contrast',
+  'blueprint',
+  'custom'
+])
+
+// Excalidraw element schema (simplified for AI output)
+export const excalidrawElementSchema = z.object({
+  type: z.enum(['rectangle', 'ellipse', 'diamond', 'text', 'arrow', 'line']),
+  id: z.string(),
+  x: z.number(),
+  y: z.number(),
+  width: z.number().optional(),
+  height: z.number().optional(),
+  strokeColor: z.string().optional(),
+  backgroundColor: z.string().optional(),
+  fillStyle: z.string().optional(),
+  strokeWidth: z.number().optional(),
+  roughness: z.number().optional(),
+  roundness: z.object({ type: z.number(), value: z.number().optional() }).nullable().optional(),
+  text: z.string().optional(),
+  fontSize: z.number().optional(),
+  fontFamily: z.number().optional(),
+  textAlign: z.string().optional(),
+  verticalAlign: z.string().optional(),
+  containerId: z.string().nullable().optional(),
+  boundElements: z.array(z.object({
+    type: z.string(),
+    id: z.string()
+  })).nullable().optional(),
+  groupIds: z.array(z.string()).optional(),
+  points: z.array(z.array(z.number())).optional(),
+  startBinding: z.object({
+    elementId: z.string(),
+    focus: z.number(),
+    gap: z.number()
+  }).nullable().optional(),
+  endBinding: z.object({
+    elementId: z.string(),
+    focus: z.number(),
+    gap: z.number()
+  }).nullable().optional(),
+  elbowed: z.boolean().optional(),
+})
+
+export const excalidrawSchema = z.object({
+  // Workflow state tracking
+  current_step: wireframeStepSchema.describe('Current step in the 10-step workflow'),
+
+  // Step 0-4 outputs (requirements gathering)
+  wireframe_type: wireframeTypeSchema.optional().describe('Selected wireframe type'),
+  fidelity_level: fidelityLevelSchema.optional().describe('Low/Medium/High detail level'),
+  screen_count: z.number().optional().describe('Number of screens to generate'),
+  device_dimensions: z.object({
+    width: z.number(),
+    height: z.number()
+  }).optional().describe('Device viewport dimensions'),
+  theme_style: themeStyleSchema.optional().describe('Selected theme style'),
+  theme_colors: z.object({
+    background: z.string(),
+    container: z.string(),
+    border: z.string(),
+    text: z.string()
+  }).optional().describe('Theme color palette'),
+
+  // Step 5 output (structure)
+  structure_plan: z.object({
+    screens: z.array(z.object({
+      name: z.string(),
+      purpose: z.string(),
+      ui_elements: z.array(z.string())
+    })),
+    navigation_flow: z.array(z.object({
+      from: z.string(),
+      to: z.string(),
+      action: z.string()
+    })).optional()
+  }).optional().describe('Planned wireframe structure'),
+
+  // Step 7 output (the actual Excalidraw elements)
+  excalidraw_elements: z.array(excalidrawElementSchema).optional().describe('Excalidraw elements array'),
+
+  // UI fields
+  commentary: z.string().describe('AI explanation of current step and what it needs from user'),
+  title: z.string().describe('Short title for the wireframe project'),
+  description: z.string().describe('Brief description of the wireframe'),
+
+  // Interaction control
+  awaiting_input: z.boolean().describe('Whether AI is waiting for user input'),
+  input_prompt: z.string().optional().describe('What input the AI needs from the user'),
+  input_options: z.array(z.string()).optional().describe('Numbered options for user to choose from'),
+})
+
+export type ExcalidrawSchema = z.infer<typeof excalidrawSchema>
+export type ExcalidrawElement = z.infer<typeof excalidrawElementSchema>
+
+// ============================================
+// Legacy Fragment Schema (kept for reference)
+// ============================================
+
 export const fragmentSchema = z.object({
   commentary: z
     .string()
@@ -9,7 +139,6 @@ export const fragmentSchema = z.object({
   template: z
     .string()
     .describe('Name of the template used to generate the fragment.'),
-  // template_ready: z.boolean().describe('Detect if finished identifying the template.'),
   title: z.string().describe('Short title of the fragment. Max 3 words.'),
   description: z
     .string()
@@ -29,7 +158,6 @@ export const fragmentSchema = z.object({
     .describe(
       'Command to install additional dependencies required by the fragment.',
     ),
-  // install_dependencies_ready: z.boolean().describe('Detect if finished identifying additional dependencies.'),
   port: z
     .number()
     .nullable()
@@ -42,14 +170,6 @@ export const fragmentSchema = z.object({
   code: z
     .string()
     .describe('Code generated by the fragment. Only runnable code is allowed.'),
-  // code: z.array(z.object({
-  //   file_name: z.string().describe('Name of the file.'),
-  //   file_path: z.string().describe('Relative path to the file, including the file name.'),
-  //   file_content: z.string().describe('Content of the file.'),
-  //   file_finished: z.boolean().describe('Detect if finished generating the file.'),
-  // })),
-  // code_finished: z.boolean().describe('Detect if finished generating the code.'),
-  // error: z.string().optional().describe('Error message if the fragment is not valid.'),
 })
 
 export type FragmentSchema = z.infer<typeof fragmentSchema>
