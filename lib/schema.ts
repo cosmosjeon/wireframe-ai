@@ -36,44 +36,17 @@ export const themeStyleSchema = z.enum([
   'custom'
 ])
 
-// Excalidraw element schema (simplified for AI output)
-export const excalidrawElementSchema = z.object({
-  type: z.enum(['rectangle', 'ellipse', 'diamond', 'text', 'arrow', 'line']),
-  id: z.string(),
-  x: z.number(),
-  y: z.number(),
-  width: z.number().optional(),
-  height: z.number().optional(),
-  strokeColor: z.string().optional(),
-  backgroundColor: z.string().optional(),
-  fillStyle: z.string().optional(),
-  strokeWidth: z.number().optional(),
-  roughness: z.number().optional(),
-  roundness: z.object({ type: z.number(), value: z.number().optional() }).nullable().optional(),
-  text: z.string().optional(),
-  fontSize: z.number().optional(),
-  fontFamily: z.number().optional(),
-  textAlign: z.string().optional(),
-  verticalAlign: z.string().optional(),
-  containerId: z.string().nullable().optional(),
-  boundElements: z.array(z.object({
-    type: z.string(),
-    id: z.string()
-  })).nullable().optional(),
-  groupIds: z.array(z.string()).optional(),
-  points: z.array(z.array(z.number())).optional(),
-  startBinding: z.object({
-    elementId: z.string(),
-    focus: z.number(),
-    gap: z.number()
-  }).nullable().optional(),
-  endBinding: z.object({
-    elementId: z.string(),
-    focus: z.number(),
-    gap: z.number()
-  }).nullable().optional(),
-  elbowed: z.boolean().optional(),
+// Excalidraw element schema - permissive to allow AI flexibility
+export const excalidrawElementSchema = z.any()
+
+// Element update operation schema for partial updates
+export const elementUpdateSchema = z.object({
+  operation: z.enum(['update', 'delete']).describe('update: modify existing element, delete: remove element'),
+  element_id: z.string().describe('ID of the element to update or delete'),
+  changes: z.record(z.any()).optional().describe('Properties to update (only for update operation)'),
 })
+
+export type ElementUpdate = z.infer<typeof elementUpdateSchema>
 
 export const excalidrawSchema = z.object({
   // Workflow state tracking
@@ -110,7 +83,10 @@ export const excalidrawSchema = z.object({
   }).optional().describe('Planned wireframe structure'),
 
   // Step 7 output (the actual Excalidraw elements)
-  excalidraw_elements: z.array(excalidrawElementSchema).optional().describe('Excalidraw elements array'),
+  excalidraw_elements: z.array(excalidrawElementSchema).optional().describe('Full Excalidraw elements array - use for new wireframes'),
+
+  // Partial update mode (for modifications - more efficient)
+  element_updates: z.array(elementUpdateSchema).optional().describe('Partial updates - use for modifying existing elements instead of returning full array'),
 
   // UI fields
   commentary: z.string().describe('AI explanation of current step and what it needs from user'),

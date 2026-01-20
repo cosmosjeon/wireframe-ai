@@ -1,5 +1,5 @@
 {
-  "name": "e2b-fragments",
+  "name": "vibeframe",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -30,6 +30,7 @@
     "@radix-ui/react-toast": "^1.2.1",
     "@radix-ui/react-tooltip": "^1.1.2",
     "@radix-ui/react-visually-hidden": "^1.1.0",
+    "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.50.0",
     "@upstash/ratelimit": "^2.0.1",
     "@vercel/analytics": "^1.5.0",

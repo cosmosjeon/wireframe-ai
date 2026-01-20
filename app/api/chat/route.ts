@@ -1,10 +1,9 @@
 import { handleAPIError, createRateLimitResponse } from '@/lib/api-errors'
 import { Duration } from '@/lib/duration'
 import { getModelClient, LLMModel, LLMModelConfig } from '@/lib/models'
-import { toPrompt } from '@/lib/prompt'
+import { buildSystemPrompt } from '@/lib/wireframe-prompt'
 import ratelimit from '@/lib/ratelimit'
-import { fragmentSchema as schema } from '@/lib/schema'
-import { Templates } from '@/lib/templates'
+import { excalidrawSchema as schema } from '@/lib/schema'
 import { streamObject, LanguageModel, CoreMessage } from 'ai'
 
 export const maxDuration = 300
@@ -19,16 +18,18 @@ const ratelimitWindow = process.env.RATE_LIMIT_WINDOW
 export async function POST(req: Request) {
   const {
     messages,
+    currentElements,
+    workflowMode,
     userID,
     teamID,
-    template,
     model,
     config,
   }: {
     messages: CoreMessage[]
+    currentElements?: any[]
+    workflowMode?: boolean
     userID: string | undefined
     teamID: string | undefined
-    template: Templates
     model: LLMModel
     config: LLMModelConfig
   } = await req.json()
@@ -45,22 +46,20 @@ export async function POST(req: Request) {
     return createRateLimitResponse(limit)
   }
 
-  console.log('userID', userID)
-  console.log('teamID', teamID)
-  // console.log('template', template)
-  console.log('model', model)
-  // console.log('config', config)
-
   const { model: modelNameString, apiKey: modelApiKey, ...modelParams } = config
   const modelClient = getModelClient(model, config)
 
   try {
+    // Build system prompt based on workflow mode and canvas state
+    const systemPrompt = buildSystemPrompt(workflowMode ?? false, currentElements)
+
     const stream = await streamObject({
       model: modelClient as LanguageModel,
       schema,
-      system: toPrompt(template),
+      system: systemPrompt,
       messages,
-      maxRetries: 0, // do not retry on errors
+      maxRetries: 0,
+      maxTokens: 16000,
       ...modelParams,
     })
 

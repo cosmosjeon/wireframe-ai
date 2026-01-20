@@ -25,9 +25,9 @@ export function AuthDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent>
         <VisuallyHidden>
-          <DialogTitle>Sign in to WireFrame AI</DialogTitle>
+          <DialogTitle>Sign in to VibeFrame</DialogTitle>
           <DialogDescription>
-            Sign in or create an account to access WireFrame AI
+            Sign in or create an account to access VibeFrame
           </DialogDescription>
         </VisuallyHidden>
         <div className="flex justify-center items-center flex-col">
@@ -39,7 +39,7 @@ export function AuthDialog({
             <Auth
               supabaseClient={supabase}
               view={view}
-              providers={['github', 'google']}
+              providers={['google']}
               socialLayout="horizontal"
               onSignUpValidate={validateEmail}
               metadata={{

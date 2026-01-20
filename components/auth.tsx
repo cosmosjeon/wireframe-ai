@@ -81,15 +81,6 @@ interface UseAuthFormReturn {
 const ProviderIcons: {
   [key in Provider]?: React.ComponentType<{ className?: string }>
 } = {
-  github: ({ className }) => (
-    <svg
-      role="img"
-      viewBox="0 0 24 24"
-      className={className}
-      fill="currentColor"
-      dangerouslySetInnerHTML={{ __html: SimpleIcons.siGithub.svg }}
-    />
-  ),
   google: ({ className }) => (
     <svg
       role="img"
