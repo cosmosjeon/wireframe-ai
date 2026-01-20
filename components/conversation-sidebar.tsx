@@ -19,7 +19,11 @@ import {
   PanelLeftClose,
   PanelLeft,
   LogOut,
+  CreditCard,
+  Sparkles,
 } from 'lucide-react'
+import Link from 'next/link'
+import { UsageDisplay } from '@/components/billing/usage-display'
 import { Session } from '@supabase/supabase-js'
 import Logo from '@/components/logo'
 import { useState } from 'react'
@@ -157,6 +161,23 @@ export function ConversationSidebar({
                 </span>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
+              <div className="px-2 py-1.5">
+                <UsageDisplay compact />
+              </div>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href="/pricing" className="cursor-pointer">
+                  <Sparkles className="mr-2 h-4 w-4 text-muted-foreground" />
+                  요금제
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/settings/billing" className="cursor-pointer">
+                  <CreditCard className="mr-2 h-4 w-4 text-muted-foreground" />
+                  결제 관리
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem onClick={onLogout}>
                 <LogOut className="mr-2 h-4 w-4 text-muted-foreground" />
                 로그아웃
@@ -269,7 +290,24 @@ export function ConversationSidebar({
                 </span>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={onLogout}>
+              <div className="px-2 py-2">
+                <UsageDisplay compact />
+              </div>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href="/pricing" className="px-2 py-1.5 cursor-pointer">
+                  <Sparkles className="mr-2 h-4 w-4 text-muted-foreground" />
+                  요금제
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/settings/billing" className="px-2 py-1.5 cursor-pointer">
+                  <CreditCard className="mr-2 h-4 w-4 text-muted-foreground" />
+                  결제 관리
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={onLogout} className="cursor-pointer">
                 <LogOut className="mr-2 h-4 w-4 text-muted-foreground" />
                 로그아웃
               </DropdownMenuItem>

@@ -5,6 +5,8 @@ import { buildSystemPrompt } from '@/lib/wireframe-prompt'
 import ratelimit from '@/lib/ratelimit'
 import { excalidrawSchema as schema } from '@/lib/schema'
 import { streamObject, LanguageModel, CoreMessage } from 'ai'
+import { canUseGeneration, consumeGeneration } from '@/lib/usage'
+import { createServerSupabaseClient } from '@/lib/supabase-server'
 
 export const maxDuration = 300
 
@@ -24,6 +26,7 @@ export async function POST(req: Request) {
     teamID,
     model,
     config,
+    conversationId,
   }: {
     messages: CoreMessage[]
     currentElements?: any[]
@@ -32,6 +35,7 @@ export async function POST(req: Request) {
     teamID: string | undefined
     model: LLMModel
     config: LLMModelConfig
+    conversationId?: string
   } = await req.json()
 
   const limit = !config.apiKey
@@ -44,6 +48,24 @@ export async function POST(req: Request) {
 
   if (limit) {
     return createRateLimitResponse(limit)
+  }
+
+  const supabase = await createServerSupabaseClient()
+  let authenticatedUserId: string | null = null
+
+  if (supabase) {
+    const { data: { user } } = await supabase.auth.getUser()
+    authenticatedUserId = user?.id || null
+
+    if (authenticatedUserId && !config.apiKey) {
+      const canUse = await canUseGeneration(authenticatedUserId)
+      if (!canUse.allowed) {
+        return new Response(
+          JSON.stringify({ error: canUse.reason || 'Generation limit reached' }),
+          { status: 429, headers: { 'Content-Type': 'application/json' } }
+        )
+      }
+    }
   }
 
   const { model: modelNameString, apiKey: modelApiKey, ...modelParams } = config
@@ -62,6 +84,18 @@ export async function POST(req: Request) {
       maxTokens: 16000,
       ...modelParams,
     })
+
+    if (authenticatedUserId && !config.apiKey) {
+      const idempotencyKey = `gen_${authenticatedUserId}_${Date.now()}`
+      await consumeGeneration(
+        authenticatedUserId,
+        1,
+        conversationId,
+        model.id,
+        'Wireframe generation',
+        idempotencyKey
+      )
+    }
 
     return stream.toTextStreamResponse()
   } catch (error: any) {
