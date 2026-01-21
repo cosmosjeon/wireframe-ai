@@ -6,7 +6,9 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { Session } from '@supabase/supabase-js'
+import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { ArrowRight, Trash, Undo } from 'lucide-react'
+import Logo from './logo'
 
 export function NavBar({
   session,
@@ -26,38 +28,48 @@ export function NavBar({
   canUndo: boolean
 }) {
   return (
-    <nav className="w-full flex bg-background py-4 justify-end">
+    <nav
+      className={`w-full flex bg-background py-4 ${
+        !session ? 'justify-between' : 'justify-end'
+      }`}
+    >
+      {!session && <Logo />}
       <div className="flex items-center gap-1 md:gap-4">
-        <TooltipProvider>
-          <Tooltip delayDuration={0}>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onUndo}
-                disabled={!canUndo}
-              >
-                <Undo className="h-4 w-4 md:h-5 md:w-5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Undo</TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-        <TooltipProvider>
-          <Tooltip delayDuration={0}>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onClear}
-                disabled={!canClear}
-              >
-                <Trash className="h-4 w-4 md:h-5 md:w-5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Clear chat</TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        {session && (
+          <TooltipProvider>
+            <Tooltip delayDuration={0}>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onUndo}
+                  disabled={!canUndo}
+                >
+                  <Undo className="h-4 w-4 md:h-5 md:w-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Undo</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+        {session && (
+          <TooltipProvider>
+            <Tooltip delayDuration={0}>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onClear}
+                  disabled={!canClear}
+                >
+                  <Trash className="h-4 w-4 md:h-5 md:w-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Clear chat</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+        {!session && <ThemeToggle />}
         {!session && (
           <Button variant="default" onClick={showLogin}>
             Sign in

@@ -31,7 +31,7 @@ export function AuthDialog({
           </DialogDescription>
         </VisuallyHidden>
         <div className="flex justify-center items-center flex-col">
-          <h1 className="flex items-center gap-4 text-xl font-bold mb-6 w-full">
+          <h1 className="flex flex-col items-center gap-2 text-xl font-bold mb-6 w-full">
             <Logo />
             Sign in
           </h1>

@@ -4,7 +4,7 @@ import { ViewType } from '@/components/auth'
 import { AuthDialog } from '@/components/auth-dialog'
 import { Chat } from '@/components/chat'
 import { ChatInput } from '@/components/chat-input'
-import { ChatPicker } from '@/components/chat-picker'
+import { ModePicker, AppMode } from '@/components/mode-picker'
 import { NavBar } from '@/components/navbar'
 import { Preview } from '@/components/preview'
 import { StepIndicator } from '@/components/step-indicator'
@@ -13,7 +13,7 @@ import { useAuth } from '@/lib/auth'
 import { Message, toAISDKMessages, toMessageImage } from '@/lib/messages'
 import { LLMModelConfig } from '@/lib/models'
 import modelsList from '@/lib/models.json'
-import { ExcalidrawSchema, excalidrawSchema as schema, wireframeStepSchema, ElementUpdate } from '@/lib/schema'
+import { ExcalidrawSchema, excalidrawSchema as schema, wireframeStepSchema, ElementUpdate, WorkflowMode } from '@/lib/schema'
 import { supabase } from '@/lib/supabase'
 import { Conversation, DBMessage, MessageContent } from '@/lib/types/conversation'
 import { DeepPartial } from 'ai'
@@ -35,7 +35,8 @@ export default function Home() {
       model: 'claude-opus-4-5-20251101',
     },
   )
-  const [workflowMode, setWorkflowMode] = useLocalStorage('workflowMode', false)
+  const [workflowMode, setWorkflowMode] = useLocalStorage<WorkflowMode | null>('workflowMode', null)
+  const [appMode, setAppMode] = useLocalStorage<AppMode>('appMode', 'drawing')
   const [sidebarCollapsed, setSidebarCollapsed] = useLocalStorage('sidebarCollapsed', false)
 
   const posthog = usePostHog()
@@ -472,6 +473,7 @@ export default function Home() {
       model: currentModel,
       config: languageModel,
       workflowMode,
+      appMode,
     })
   }
 
@@ -521,7 +523,7 @@ export default function Home() {
   function handleNewConversation() {
     handleClearChat()
     setCurrentConversationId(null)
-    setWorkflowMode(false)
+    setWorkflowMode(null)
   }
 
   function handleSelectConversation(id: string) {
@@ -566,6 +568,7 @@ export default function Home() {
       config: languageModel,
       currentElements: elementsToSend,
       workflowMode,
+      appMode,
     })
 
     posthog.capture('option_click', {
@@ -580,25 +583,27 @@ export default function Home() {
   const inputOptions = wireframe?.input_options
 
   // 워크플로우 시작 핸들러
-  async function handleStartWorkflow() {
+  async function handleStartWorkflow(mode: WorkflowMode = 'guided') {
     if (!session) {
       return setAuthDialog(true)
     }
 
-    // Create conversation for workflow (with dedup)
-    const convId = await getOrCreateConversation('Guided Workflow')
+    const modeLabels: Record<WorkflowMode, string> = {
+      expert: 'Expert Mode',
+      guided: 'Guided Mode',
+      auto: 'Auto Mode',
+      chat: 'Free Chat'
+    }
 
-    // 워크플로우 모드 활성화
-    setWorkflowMode(true)
+    const convId = await getOrCreateConversation(modeLabels[mode])
+    setWorkflowMode(mode)
 
-    // 초기 메시지로 워크플로우 시작
     const content: Message['content'] = [{ type: 'text', text: '와이어프레임을 만들고 싶어요' }]
     const updatedMessages = addMessage({
       role: 'user',
       content,
     })
 
-    // Save to DB
     if (convId && session) {
       await saveMessage(convId, 'user', [{ type: 'text', text: '와이어프레임을 만들고 싶어요' }])
     }
@@ -610,14 +615,15 @@ export default function Home() {
       model: currentModel,
       config: languageModel,
       currentElements: [],
-      workflowMode: true,
+      workflowMode: mode,
+      appMode,
     })
 
-    posthog.capture('workflow_started')
+    posthog.capture('workflow_started', { mode })
   }
 
   return (
-    <main className="flex min-h-screen max-h-screen">
+    <main className="flex h-screen overflow-hidden">
       {supabase && (
         <AuthDialog
           open={isAuthDialogOpen}
@@ -642,69 +648,101 @@ export default function Home() {
         />
       )}
 
-      <div className={`flex-1 grid w-full ${isFullscreen ? '' : showSidebar ? 'md:grid-cols-[3fr_7fr]' : 'md:grid-cols-1'}`}>
+      <div className={`flex-1 grid w-full h-full overflow-hidden ${isFullscreen ? '' : showSidebar ? 'md:grid-cols-[3fr_7fr]' : 'md:grid-cols-1'}`}>
         {!isFullscreen && (
         <div
-          className={`flex flex-col w-full max-h-full mx-auto px-4 overflow-auto col-span-1 transition-all duration-300 ${showSidebar ? 'max-w-[800px]' : 'max-w-[1200px]'}`}
+          className={`flex flex-col h-full w-full mx-auto px-4 col-span-1 overflow-hidden transition-all duration-300 ${showSidebar ? 'max-w-[800px]' : 'max-w-[1200px]'}`}
         >
-          <NavBar
-            session={session}
-            showLogin={() => setAuthDialog(true)}
-            signOut={logout}
-            onSocialClick={handleSocialClick}
-            onClear={handleClearChat}
-            canClear={messages.length > 0}
-            canUndo={messages.length > 1 && !isLoading}
-            onUndo={handleUndo}
-          />
-          {/* Workflow Mode Indicator */}
-          {workflowMode && messages.length > 0 && (
-            <div className="flex items-center justify-between py-2 border-b border-gray-100">
-              <div className="flex items-center gap-2">
-                <span className="px-3 py-1.5 text-sm rounded-full bg-blue-100 text-blue-700 border border-blue-200">
-                  Guided Workflow
-                </span>
-                <button
-                  onClick={() => {
-                    setWorkflowMode(false)
-                    handleClearChat()
-                  }}
-                  className="text-xs text-gray-500 hover:text-gray-700"
-                >
-                  종료
-                </button>
+          {/* Fixed Header */}
+          <div className="flex-shrink-0">
+            <NavBar
+              session={session}
+              showLogin={() => setAuthDialog(true)}
+              signOut={logout}
+              onSocialClick={handleSocialClick}
+              onClear={handleClearChat}
+              canClear={messages.length > 0}
+              canUndo={messages.length > 1 && !isLoading}
+              onUndo={handleUndo}
+            />
+            {/* Workflow Mode Indicator */}
+            {workflowMode && messages.length > 0 && (
+              <div className="flex items-center justify-between py-2 border-b border-gray-200">
+                <div className="flex items-center gap-2">
+                  <span className="px-3 py-1 text-sm rounded-full bg-gray-100 text-gray-700 border border-gray-200">
+                    {workflowMode === 'expert' ? 'Expert' :
+                     workflowMode === 'auto' ? 'Auto' :
+                     workflowMode === 'guided' ? 'Guided' : 'Workflow'}
+                  </span>
+                  <button
+                    onClick={() => {
+                      setWorkflowMode(null)
+                      handleClearChat()
+                    }}
+                    className="text-xs text-gray-400 hover:text-gray-600"
+                  >
+                    종료
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
-          {/* Step Indicator (only in workflow mode) */}
-          {workflowMode && currentStep && currentStep !== 'complete' && (
-            <StepIndicator currentStep={currentStep} />
-          )}
+            )}
+            {/* Step Indicator (only in workflow mode) */}
+            {workflowMode && currentStep && currentStep !== 'complete' && (
+              <StepIndicator currentStep={currentStep} />
+            )}
+          </div>
+          
+          {/* Scrollable Content Area */}
+          <div className="flex-1 overflow-auto min-h-0">
           {messages.length === 0 && !isLoading ? (
-            <div className="flex-1 flex flex-col items-center justify-center gap-6 py-20">
-              <div className="text-center space-y-4 flex flex-col items-center">
+            <div className="flex flex-col items-center justify-center gap-4 py-8 h-full">
+              <div className="text-center space-y-2 flex flex-col items-center">
                 <img
                   src="/vibeframe-text.png"
                   alt="VibeFrame"
-                  className="h-12 w-auto dark:invert"
+                  className="h-10 w-auto dark:invert"
                 />
-                <p className="text-muted-foreground">
+                <p className="text-sm text-muted-foreground">
                   캔버스에 그리고 채팅으로 수정하세요
                 </p>
               </div>
-              <p className="text-sm text-muted-foreground max-w-md text-center">
-                오른쪽 캔버스에서 자유롭게 그린 후<br />
-                &ldquo;이거 정리해줘&rdquo;, &ldquo;헤더 빨간색으로&rdquo; 등 채팅하세요
-              </p>
-              {/* Start Workflow Button */}
-              <button
-                onClick={handleStartWorkflow}
-                className="mt-4 px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors flex items-center gap-2 shadow-md"
-              >
-                <Sparkles className="h-4 w-4" />
-                <span>10단계 가이드로 시작하기</span>
-              </button>
-              <p className="text-xs text-gray-400">
+              <div className="flex flex-col gap-3 mt-6 w-full max-w-md">
+                <div className="text-center mb-3">
+                  <p className="text-lg font-semibold text-gray-900">시작 방법을 선택하세요</p>
+                  <p className="text-sm text-gray-500 mt-1">셋 중 하나를 클릭하면 바로 시작됩니다</p>
+                </div>
+                
+                <button
+                  onClick={() => handleStartWorkflow('guided')}
+                  className="group flex items-center gap-4 w-full p-4 bg-white border-2 border-gray-300 rounded-xl hover:border-black hover:bg-gray-50 hover:shadow-md transition-all text-left"
+                >
+                  <div className="flex-shrink-0 w-20 h-10 bg-white text-black border-2 border-gray-400 rounded-lg flex items-center justify-center text-sm font-semibold group-hover:border-black group-hover:bg-black group-hover:text-white transition-all">
+                    Guided
+                  </div>
+                  <span className="text-gray-600 text-sm">질문에 답하면서 함께 만들어요</span>
+                </button>
+
+                <button
+                  onClick={() => handleStartWorkflow('expert')}
+                  className="group flex items-center gap-4 w-full p-4 bg-white border-2 border-gray-300 rounded-xl hover:border-black hover:bg-gray-50 hover:shadow-md transition-all text-left"
+                >
+                  <div className="flex-shrink-0 w-20 h-10 bg-white text-black border-2 border-gray-400 rounded-lg flex items-center justify-center text-sm font-semibold group-hover:border-black group-hover:bg-black group-hover:text-white transition-all">
+                    Expert
+                  </div>
+                  <span className="text-gray-600 text-sm">모든 디테일을 직접 결정해요</span>
+                </button>
+
+                <button
+                  onClick={() => handleStartWorkflow('auto')}
+                  className="group flex items-center gap-4 w-full p-4 bg-white border-2 border-gray-300 rounded-xl hover:border-black hover:bg-gray-50 hover:shadow-md transition-all text-left"
+                >
+                  <div className="flex-shrink-0 w-20 h-10 bg-white text-black border-2 border-gray-400 rounded-lg flex items-center justify-center text-sm font-semibold group-hover:border-black group-hover:bg-black group-hover:text-white transition-all">
+                    Auto
+                  </div>
+                  <span className="text-gray-600 text-sm">최소 입력, AI가 알아서 만들어요</span>
+                </button>
+              </div>
+              <p className="text-xs text-gray-400 mt-3">
                 또는 아래 채팅으로 자유롭게 요청하세요
               </p>
             </div>
@@ -715,21 +753,23 @@ export default function Home() {
               setCurrentPreview={() => {}}
             />
           )}
-          {/* Option Buttons (when awaiting input) */}
-          {workflowMode && isAwaitingInput && inputOptions && inputOptions.length > 0 && !isLoading && (
-            <div className="flex flex-wrap gap-2 px-2 py-3 border-t border-gray-100 bg-gray-50">
-              {inputOptions.map((option, index) => (
-                <button
-                  key={index}
-                  onClick={() => handleOptionClick(option as string)}
-                  className="px-4 py-2 text-sm bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-colors"
-                >
-                  {option as string}
-                </button>
-              ))}
-            </div>
-          )}
-          <ChatInput
+          </div>
+          
+          <div className="flex-shrink-0">
+            {workflowMode && isAwaitingInput && inputOptions && inputOptions.length > 0 && !isLoading && (
+              <div className="flex flex-wrap gap-2 px-2 py-3 border-t border-gray-100 bg-gray-50">
+                {inputOptions.map((option, index) => (
+                  <button
+                    key={index}
+                    onClick={() => handleOptionClick(option as string)}
+                    className="px-4 py-2 text-sm bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-colors"
+                  >
+                    {option as string}
+                  </button>
+                ))}
+              </div>
+            )}
+            <ChatInput
             retry={retry}
             isErrored={error !== undefined}
             errorMessage={errorMessage}
@@ -743,12 +783,12 @@ export default function Home() {
             files={files}
             handleFileChange={handleFileChange}
           >
-            <ChatPicker
-              models={filteredModels}
-              languageModel={languageModel}
-              onLanguageModelChange={handleLanguageModelChange}
+            <ModePicker
+              mode={appMode}
+              onModeChange={setAppMode}
             />
           </ChatInput>
+          </div>
         </div>
         )}
         {(showSidebar || isFullscreen) ? (

@@ -1,6 +1,6 @@
 export type PlanId = 'free' | 'pro' | 'team' | 'enterprise'
 export type SubscriptionStatus = 'active' | 'trialing' | 'past_due' | 'canceled' | 'paused'
-export type UsageEventType = 'generation' | 'question' | 'refund' | 'grant' | 'reset'
+export type UsageEventType = 'generation' | 'token_usage' | 'question' | 'refund' | 'grant' | 'reset' | 'purchase'
 export type PurchaseStatus = 'pending' | 'completed' | 'failed' | 'refunded'
 
 export type Plan = {
@@ -10,6 +10,8 @@ export type Plan = {
   price_monthly: number
   price_yearly: number | null
   generations_per_month: number
+  credits_per_month: number
+  tokens_per_month: number
   daily_limit: number | null
   max_projects: number | null
   features: string[]
@@ -30,10 +32,15 @@ export type Subscription = {
   current_period_end: string
   cancel_at_period_end: boolean
   trial_end: string | null
+  // Legacy generation fields (deprecated)
   generations_used: number
   generations_included: number
   generations_purchased: number
   generations_rollover: number
+  // New credit-based fields
+  credits_balance: number
+  credits_used_total: number
+  tokens_used_total: number
   metadata: Record<string, unknown>
   created_at: string
   updated_at: string
@@ -50,6 +57,11 @@ export type UsageEvent = {
   event_type: UsageEventType
   generations_delta: number
   generations_after: number
+  // Token tracking fields
+  prompt_tokens: number
+  completion_tokens: number
+  total_tokens: number
+  credits_consumed: number
   conversation_id: string | null
   model_used: string | null
   description: string | null
@@ -58,6 +70,7 @@ export type UsageEvent = {
   created_at: string
 }
 
+// Legacy package type (deprecated)
 export type GenerationPackage = {
   id: string
   name: string
@@ -65,6 +78,20 @@ export type GenerationPackage = {
   price: number
   stripe_price_id: string | null
   is_active: boolean
+  created_at: string
+}
+
+// New credit package type
+export type CreditPackage = {
+  id: string
+  name: string
+  credits: number
+  tokens_equivalent: number
+  price: number
+  price_per_1k_tokens: number
+  stripe_price_id: string | null
+  is_active: boolean
+  sort_order: number
   created_at: string
 }
 
@@ -78,9 +105,11 @@ export type Purchase = {
   currency: string
   status: PurchaseStatus
   generations_granted: number
+  credits_granted?: number
   created_at: string
 }
 
+// Legacy usage info (deprecated)
 export type UsageInfo = {
   used: number
   included: number
@@ -93,9 +122,26 @@ export type UsageInfo = {
   daily_limit?: number | null
 }
 
+// New credit-based usage info
+export type CreditUsageInfo = {
+  credits_balance: number
+  credits_used_total: number
+  tokens_used_total: number
+  plan: PlanId
+  plan_credits_per_month: number
+  period_end: string
+}
+
 export type UseGenerationResult = {
   success: boolean
   remaining: number
+  error_message: string | null
+}
+
+export type UseCreditsResult = {
+  success: boolean
+  credits_remaining: number
+  credits_consumed: number
   error_message: string | null
 }
 
@@ -103,6 +149,13 @@ export type DailyLimitResult = {
   allowed: boolean
   used_today: number
   daily_limit: number | null
+}
+
+export type CanUseCreditsResult = {
+  allowed: boolean
+  credits_balance: number
+  credits_needed: number
+  reason: string | null
 }
 
 export type CheckoutSessionRequest = {
@@ -124,6 +177,7 @@ export type PortalSessionResponse = {
 
 export type UsageResponse = {
   usage: UsageInfo
+  creditUsage: CreditUsageInfo
   subscription: Subscription
   plan: Plan
 }
@@ -134,4 +188,8 @@ export type PlansResponse = {
 
 export type PackagesResponse = {
   packages: GenerationPackage[]
+}
+
+export type CreditPackagesResponse = {
+  packages: CreditPackage[]
 }

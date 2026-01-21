@@ -5,7 +5,9 @@ import type {
   SubscriptionWithPlan,
   Plan,
   UsageInfo,
+  CreditUsageInfo,
   GenerationPackage,
+  CreditPackage,
   PlanId,
 } from '@/lib/types/billing'
 
@@ -64,6 +66,11 @@ export async function getPlans(): Promise<Plan[]> {
   return data as Plan[]
 }
 
+// ============================================
+// Legacy generation packages (deprecated)
+// ============================================
+
+/** @deprecated Use getCreditPackages instead */
 export async function getGenerationPackages(): Promise<GenerationPackage[]> {
   const supabase = await createServerSupabaseClient()
   if (!supabase) return []
@@ -78,6 +85,45 @@ export async function getGenerationPackages(): Promise<GenerationPackage[]> {
   return data as GenerationPackage[]
 }
 
+// ============================================
+// Credit-based billing functions
+// ============================================
+
+/**
+ * Get available credit packages
+ */
+export async function getCreditPackages(): Promise<CreditPackage[]> {
+  const supabase = await createServerSupabaseClient()
+  if (!supabase) return []
+
+  const { data, error } = await supabase
+    .from('credit_packages')
+    .select('*')
+    .eq('is_active', true)
+    .order('sort_order', { ascending: true })
+
+  if (error || !data) return []
+  return data as CreditPackage[]
+}
+
+/**
+ * Get credit usage info for a user
+ */
+export async function getCreditUsageInfo(userId: string): Promise<CreditUsageInfo | null> {
+  const subscription = await getSubscriptionWithPlan(userId)
+  if (!subscription) return null
+
+  return {
+    credits_balance: subscription.credits_balance ?? 0,
+    credits_used_total: subscription.credits_used_total ?? 0,
+    tokens_used_total: subscription.tokens_used_total ?? 0,
+    plan: subscription.plan_id,
+    plan_credits_per_month: subscription.plan.credits_per_month ?? 0,
+    period_end: subscription.current_period_end,
+  }
+}
+
+/** @deprecated Use getCreditUsageInfo instead */
 export async function getUsageInfo(userId: string): Promise<UsageInfo | null> {
   const subscription = await getSubscriptionWithPlan(userId)
   if (!subscription) return null
@@ -183,7 +229,7 @@ export async function updateSubscriptionPlan(
 
   const { data: plan } = await supabase
     .from('plans')
-    .select('generations_per_month')
+    .select('generations_per_month, credits_per_month')
     .eq('id', newPlanId)
     .single()
 
@@ -194,6 +240,7 @@ export async function updateSubscriptionPlan(
     .update({
       plan_id: newPlanId,
       generations_included: plan.generations_per_month,
+      credits_balance: plan.credits_per_month,
       stripe_subscription_id: stripeSubscriptionId,
       updated_at: new Date().toISOString(),
     })
@@ -225,7 +272,7 @@ export async function handleSubscriptionDeleted(
 
   const { data: freePlan } = await supabase
     .from('plans')
-    .select('generations_per_month')
+    .select('generations_per_month, credits_per_month')
     .eq('id', 'free')
     .single()
 
@@ -239,6 +286,7 @@ export async function handleSubscriptionDeleted(
       generations_used: 0,
       generations_purchased: 0,
       generations_rollover: 0,
+      credits_balance: freePlan?.credits_per_month || 20,
       cancel_at_period_end: false,
       current_period_start: new Date().toISOString(),
       current_period_end: new Date(
@@ -249,4 +297,43 @@ export async function handleSubscriptionDeleted(
     .eq('user_id', userId)
 
   return !error
+}
+
+/**
+ * Grant credits to user after purchase
+ */
+export async function grantCreditsForPurchase(
+  userId: string,
+  credits: number,
+  packageId: string
+): Promise<boolean> {
+  const supabase = await createServerSupabaseClient()
+  if (!supabase) return false
+
+  // Use RPC to atomically add credits
+  const { error } = await supabase.rpc('add_credits', {
+    p_user_id: userId,
+    p_amount: credits,
+    p_type: 'purchase',
+    p_description: `Purchased credit package: ${packageId}`,
+  })
+
+  return !error
+}
+
+/**
+ * Get credit package by ID
+ */
+export async function getCreditPackageById(packageId: string): Promise<CreditPackage | null> {
+  const supabase = await createServerSupabaseClient()
+  if (!supabase) return null
+
+  const { data, error } = await supabase
+    .from('credit_packages')
+    .select('*')
+    .eq('id', packageId)
+    .single()
+
+  if (error || !data) return null
+  return data as CreditPackage
 }

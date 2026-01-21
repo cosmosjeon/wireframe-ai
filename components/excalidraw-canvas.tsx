@@ -149,6 +149,8 @@ export function ExcalidrawCanvas({ elements, onElementsChange }: ExcalidrawCanva
     }
   }, [validElements.length])
 
+
+
   // cleanup
   useEffect(() => {
     return () => {

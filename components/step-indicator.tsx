@@ -5,22 +5,62 @@ import { wireframeStepSchema } from '@/lib/schema'
 
 type WireframeStep = z.infer<typeof wireframeStepSchema>
 
-const STEP_CONFIG: Record<WireframeStep, { index: number; label: string }> = {
-  contextual_analysis: { index: 0, label: 'Analyzing Request' },
-  wireframe_type_selection: { index: 1, label: 'Select Type' },
-  requirements_gathering: { index: 2, label: 'Requirements' },
-  theme_detection: { index: 3, label: 'Checking Theme' },
-  theme_selection: { index: 4, label: 'Select Theme' },
-  structure_planning: { index: 5, label: 'Planning Structure' },
-  resource_loading: { index: 6, label: 'Loading Resources' },
-  element_building: { index: 7, label: 'Building Elements' },
-  optimization: { index: 8, label: 'Optimizing' },
-  json_validation: { index: 9, label: 'Validating JSON' },
-  content_validation: { index: 10, label: 'Final Validation' },
-  complete: { index: 11, label: 'Complete' },
+interface PhaseConfig {
+  phase: number
+  label: string
+  steps: WireframeStep[]
 }
 
-const TOTAL_STEPS = 11 // Excluding 'complete'
+const PHASES: PhaseConfig[] = [
+  {
+    phase: 0,
+    label: '프로파일링',
+    steps: ['profile_role', 'profile_purpose', 'profile_mode']
+  },
+  {
+    phase: 1,
+    label: '서비스 이해',
+    steps: ['service_platform', 'service_type', 'service_description', 'service_goal', 'service_target', 'service_context']
+  },
+  {
+    phase: 2,
+    label: '첫인상 설계',
+    steps: ['impression_feeling', 'impression_action', 'impression_info']
+  },
+  {
+    phase: 3,
+    label: '콘텐츠 구성',
+    steps: ['content_sections', 'content_features', 'content_pricing']
+  },
+  {
+    phase: 4,
+    label: '네비게이션',
+    steps: ['nav_menu', 'nav_header', 'nav_footer']
+  },
+  {
+    phase: 5,
+    label: '플랫폼 특화',
+    steps: ['platform_mobile_nav', 'platform_mobile_bottom', 'platform_mobile_fab', 'platform_dashboard', 'platform_dashboard_chart', 'platform_ecommerce', 'platform_ecommerce_card']
+  },
+  {
+    phase: 6,
+    label: '스타일',
+    steps: ['style_tone', 'style_density', 'style_corners', 'style_theme']
+  },
+  {
+    phase: 7,
+    label: '최종 확인',
+    steps: ['final_confirm', 'building']
+  }
+]
+
+function getPhaseForStep(step: WireframeStep): PhaseConfig | null {
+  return PHASES.find(p => p.steps.includes(step)) || null
+}
+
+function getStepIndexInPhase(step: WireframeStep, phase: PhaseConfig): number {
+  return phase.steps.indexOf(step)
+}
 
 interface StepIndicatorProps {
   currentStep: WireframeStep
@@ -28,38 +68,80 @@ interface StepIndicatorProps {
 }
 
 export function StepIndicator({ currentStep, className = '' }: StepIndicatorProps) {
-  const config = STEP_CONFIG[currentStep]
   const isComplete = currentStep === 'complete'
-
-  // config가 없으면 렌더링하지 않음
-  if (!config && !isComplete) {
+  const currentPhase = getPhaseForStep(currentStep)
+  
+  if (!currentPhase && !isComplete) {
     return null
   }
 
-  const progress = isComplete ? 100 : (config?.index ?? 0) / TOTAL_STEPS * 100
+  const totalPhases = PHASES.length
+  const currentPhaseIndex = currentPhase?.phase ?? totalPhases
+  const progress = isComplete ? 100 : (currentPhaseIndex / totalPhases) * 100
 
   return (
-    <div className={`px-4 py-2 bg-gray-50 border-b border-gray-200 ${className}`}>
-      <div className="flex items-center justify-between mb-1">
+    <div className={`px-4 py-3 bg-gray-50 border-b border-gray-200 ${className}`}>
+      <div className="flex items-center justify-between mb-2">
         <span className="text-sm font-medium text-gray-700">
           {isComplete ? (
-            <span className="text-green-600">Complete</span>
-          ) : config ? (
-            <>Step {config.index + 1}/{TOTAL_STEPS + 1}: {config.label}</>
+            <span className="text-gray-900">완료!</span>
+          ) : currentPhase ? (
+            <span>
+              Phase {currentPhase.phase + 1}: {currentPhase.label}
+            </span>
           ) : (
-            <>Processing...</>
+            <span>처리 중...</span>
           )}
         </span>
-        <span className="text-xs text-gray-500">{Math.round(progress)}%</span>
+        <span className="text-xs text-gray-400">
+          {isComplete ? '100%' : `${Math.round(progress)}%`}
+        </span>
       </div>
-      <div className="w-full bg-gray-200 rounded-full h-1.5">
-        <div
-          className={`h-1.5 rounded-full transition-all duration-300 ${
-            isComplete ? 'bg-green-500' : 'bg-blue-500'
-          }`}
-          style={{ width: `${progress}%` }}
-        />
+      
+      <div className="flex gap-1">
+        {PHASES.map((phase, idx) => {
+          const isCurrentPhase = currentPhase?.phase === idx
+          const isPastPhase = currentPhaseIndex > idx
+          const isCompletedPhase = isComplete || isPastPhase
+          
+          return (
+            <div
+              key={phase.phase}
+              className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${
+                isCompletedPhase
+                  ? 'bg-gray-900'
+                  : isCurrentPhase
+                  ? 'bg-gray-500'
+                  : 'bg-gray-200'
+              }`}
+              title={`Phase ${phase.phase + 1}: ${phase.label}`}
+            />
+          )
+        })}
       </div>
+
+      {currentPhase && !isComplete && (
+        <div className="flex gap-1 mt-1">
+          {currentPhase.steps.map((step, idx) => {
+            const stepIndex = getStepIndexInPhase(currentStep, currentPhase)
+            const isPastStep = idx < stepIndex
+            const isCurrentStep = idx === stepIndex
+            
+            return (
+              <div
+                key={step}
+                className={`h-0.5 flex-1 rounded-full ${
+                  isPastStep
+                    ? 'bg-gray-700'
+                    : isCurrentStep
+                    ? 'bg-gray-500'
+                    : 'bg-gray-200'
+                }`}
+              />
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }

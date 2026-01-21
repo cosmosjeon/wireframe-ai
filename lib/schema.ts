@@ -4,36 +4,102 @@ import { z } from 'zod'
 // Wireframe Workflow Schema (Excalidraw)
 // ============================================
 
+// Workflow Mode Types
+export const workflowModeSchema = z.enum(['chat', 'expert', 'guided', 'auto'])
+export type WorkflowMode = z.infer<typeof workflowModeSchema>
+
+// New Phase-based Step Schema
 export const wireframeStepSchema = z.enum([
-  'contextual_analysis',      // Step 0
-  'wireframe_type_selection', // Step 1
-  'requirements_gathering',   // Step 2
-  'theme_detection',          // Step 3
-  'theme_selection',          // Step 4
-  'structure_planning',       // Step 5
-  'resource_loading',         // Step 6
-  'element_building',         // Step 7
-  'optimization',             // Step 8
-  'json_validation',          // Step 9
-  'content_validation',       // Step 10
-  'complete'
+  // Phase 0: User Profiling
+  'profile_role',           // Q0-1: 당신은 누구인가요?
+  'profile_purpose',        // Q0-2: 이 와이어프레임으로 뭘 하고 싶어요?
+  'profile_mode',           // Q0-3: 어떤 스타일로 진행하고 싶어요?
+  
+  // Phase 1: Service Understanding
+  'service_platform',       // Q1-1: 플랫폼
+  'service_type',           // Q1-2: 서비스 종류
+  'service_description',    // Q1-3: 한 줄 설명
+  'service_goal',           // Q1-4: 핵심 목표 (Guided)
+  'service_target',         // Q1-5: 타겟 사용자 (Guided)
+  'service_context',        // Q1-6: 사용 상황 (Guided)
+  
+  // Phase 2: First Impression & Core Flow
+  'impression_feeling',     // Q2-1: 첫 화면 느낌
+  'impression_action',      // Q2-2: 핵심 액션
+  'impression_info',        // Q2-3: 필요한 정보
+  
+  // Phase 3: Content Blocks
+  'content_sections',       // Q3-1: 콘텐츠 블록
+  'content_features',       // Q3-2: 기능 소개 상세
+  'content_pricing',        // Q3-3: 가격 정보
+  
+  // Phase 4: Navigation & Structure
+  'nav_menu',               // Q4-1: 메뉴 구성
+  'nav_header',             // Q4-2: 헤더 구성
+  'nav_footer',             // Q4-3: 푸터 구성
+  
+  // Phase 5: Platform-Specific
+  'platform_mobile_nav',    // Q5-M1: 모바일 네비게이션
+  'platform_mobile_bottom', // Q5-M2: 바텀 네비
+  'platform_mobile_fab',    // Q5-M3: FAB
+  'platform_dashboard',     // Q5-D1: 대시보드 요소
+  'platform_dashboard_chart', // Q5-D2: 차트 종류
+  'platform_ecommerce',     // Q5-E1: 상품 레이아웃
+  'platform_ecommerce_card', // Q5-E2: 상품 카드
+  
+  // Phase 6: Style & Tone
+  'style_tone',             // Q6-1: 전체 느낌
+  'style_density',          // Q6-2: 정보 밀도
+  'style_corners',          // Q6-3: 모서리 스타일
+  'style_theme',            // Q6-4: 테마 컬러
+  
+  // Phase 7: Final
+  'final_confirm',          // Q7-1: 최종 확인
+  'building',               // 와이어프레임 생성 중
+  'complete'                // 완료
 ])
 
 export const wireframeTypeSchema = z.enum([
   'website_desktop',
   'mobile_app',
   'web_app_responsive',
-  'tablet_app',
-  'multi_platform'
+  'webapp_saas',
+  'tablet_app'
 ])
 
-export const fidelityLevelSchema = z.enum(['low', 'medium', 'high'])
+export const serviceTypeSchema = z.enum([
+  'landing',
+  'ecommerce',
+  'dashboard',
+  'saas',
+  'blog',
+  'portfolio',
+  'community',
+  'other'
+])
+
+export const userRoleSchema = z.enum([
+  'designer',
+  'developer',
+  'pm',
+  'founder',
+  'marketer'
+])
+
+export const styleToneSchema = z.enum([
+  'light_clean',
+  'dark_modern',
+  'colorful',
+  'minimal',
+  'corporate',
+  'friendly'
+])
 
 export const themeStyleSchema = z.enum([
   'classic_wireframe',
   'high_contrast',
   'blueprint',
-  'custom'
+  'auto'
 ])
 
 // Excalidraw element schema - permissive to allow AI flexibility
@@ -49,26 +115,59 @@ export const elementUpdateSchema = z.object({
 export type ElementUpdate = z.infer<typeof elementUpdateSchema>
 
 export const excalidrawSchema = z.object({
-  // Workflow state tracking
-  current_step: wireframeStepSchema.describe('Current step in the 10-step workflow'),
+  current_step: wireframeStepSchema.describe('Current step in the workflow'),
+  workflow_mode: workflowModeSchema.optional().describe('Current workflow mode'),
 
-  // Step 0-4 outputs (requirements gathering)
-  wireframe_type: wireframeTypeSchema.optional().describe('Selected wireframe type'),
-  fidelity_level: fidelityLevelSchema.optional().describe('Low/Medium/High detail level'),
-  screen_count: z.number().optional().describe('Number of screens to generate'),
-  device_dimensions: z.object({
-    width: z.number(),
-    height: z.number()
-  }).optional().describe('Device viewport dimensions'),
-  theme_style: themeStyleSchema.optional().describe('Selected theme style'),
+  user_profile: z.object({
+    role: userRoleSchema.optional(),
+    purpose: z.string().optional(),
+    mode: workflowModeSchema.optional(),
+  }).optional(),
+
+  service_info: z.object({
+    platform: wireframeTypeSchema.optional(),
+    type: serviceTypeSchema.optional(),
+    description: z.string().optional(),
+    goal: z.string().optional(),
+    target: z.string().optional(),
+    context: z.string().optional(),
+  }).optional(),
+
+  structure_info: z.object({
+    hero_style: z.string().optional(),
+    primary_action: z.string().optional(),
+    sections: z.array(z.string()).optional(),
+    header_elements: z.array(z.string()).optional(),
+    footer_style: z.string().optional(),
+    menu_count: z.number().optional(),
+  }).optional(),
+
+  platform_info: z.object({
+    mobile_nav: z.string().optional(),
+    bottom_nav_count: z.number().optional(),
+    has_fab: z.boolean().optional(),
+    dashboard_elements: z.array(z.string()).optional(),
+    chart_types: z.array(z.string()).optional(),
+    product_grid: z.string().optional(),
+    product_card_info: z.array(z.string()).optional(),
+  }).optional(),
+
+  style_info: z.object({
+    tone: styleToneSchema.optional(),
+    density: z.enum(['spacious', 'balanced', 'compact']).optional(),
+    corners: z.enum(['sharp', 'slightly_rounded', 'rounded', 'pill']).optional(),
+    theme: themeStyleSchema.optional(),
+  }).optional(),
+
+  wireframe_type: wireframeTypeSchema.optional(),
+  theme_style: themeStyleSchema.optional(),
   theme_colors: z.object({
     background: z.string(),
     container: z.string(),
     border: z.string(),
     text: z.string()
-  }).optional().describe('Theme color palette'),
+  }).optional(),
 
-  // Step 5 output (structure)
   structure_plan: z.object({
     screens: z.array(z.object({
       name: z.string(),
@@ -80,23 +179,18 @@ export const excalidrawSchema = z.object({
       to: z.string(),
       action: z.string()
     })).optional()
-  }).optional().describe('Planned wireframe structure'),
+  }).optional(),
 
-  // Step 7 output (the actual Excalidraw elements)
-  excalidraw_elements: z.array(excalidrawElementSchema).optional().describe('Full Excalidraw elements array - use for new wireframes'),
+  excalidraw_elements: z.array(excalidrawElementSchema).optional(),
+  element_updates: z.array(elementUpdateSchema).optional(),
 
-  // Partial update mode (for modifications - more efficient)
-  element_updates: z.array(elementUpdateSchema).optional().describe('Partial updates - use for modifying existing elements instead of returning full array'),
+  commentary: z.string().describe('AI explanation'),
+  title: z.string().describe('Short title'),
+  description: z.string().describe('Brief description'),
 
-  // UI fields
-  commentary: z.string().describe('AI explanation of current step and what it needs from user'),
-  title: z.string().describe('Short title for the wireframe project'),
-  description: z.string().describe('Brief description of the wireframe'),
-
-  // Interaction control
   awaiting_input: z.boolean().describe('Whether AI is waiting for user input'),
-  input_prompt: z.string().optional().describe('What input the AI needs from the user'),
-  input_options: z.array(z.string()).optional().describe('Numbered options for user to choose from'),
+  input_prompt: z.string().optional(),
+  input_options: z.array(z.string()).optional(),
 })
 
 export type ExcalidrawSchema = z.infer<typeof excalidrawSchema>
