@@ -349,7 +349,7 @@ export default function Home() {
       ]
 
       // 입력 옵션이 있으면 표시
-      if (object.awaiting_input && object.input_options) {
+      if (object.awaiting_input && Array.isArray(object.input_options)) {
         const optionsText = object.input_options
           .map((opt, i) => `${i + 1}. ${opt}`)
           .join('\n')
@@ -447,6 +447,10 @@ export default function Home() {
 
     const elementsToSend = wireframe?.excalidraw_elements || []
 
+    // If this is the first message and no mode was explicitly selected via button,
+    // treat it as free chat (null mode) instead of using stored workflowMode
+    const effectiveMode = messages.length === 0 ? null : workflowMode
+
     submit({
       userID: session?.user?.id,
       teamID: userTeam?.id,
@@ -454,7 +458,7 @@ export default function Home() {
       model: currentModel,
       config: languageModel,
       currentElements: elementsToSend,
-      workflowMode,
+      workflowMode: effectiveMode,
     })
 
     setChatInput('')
